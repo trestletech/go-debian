@@ -68,6 +68,7 @@ func marshal(incoming reflect.Value) (string, error) {
 }
 
 func marshalStruct(incoming reflect.Value) (string, error) {
+    ret := ""
 	for i := 0; i < incoming.NumField(); i++ {
 		field := incoming.Field(i)
 		fieldType := incoming.Type().Field(i)
@@ -85,9 +86,12 @@ func marshalStruct(incoming reflect.Value) (string, error) {
         if err != nil {
             return "", err
         }
-        fmt.Printf("%s: %s\n", paragraphKey, dotEncodeValue(val))
+        val = dotEncodeValue(val)
+        if val != "" {
+            ret = ret + fmt.Sprintf("%s: %s\n", paragraphKey, val)
+        }
     }
-    return "", nil
+    return ret, nil
 }
 
 func marshalStructValueSlice(incoming reflect.Value, fieldType reflect.StructField) (string, error) {
