@@ -108,11 +108,13 @@ func marshalStructValueSlice(incoming reflect.Value, fieldType reflect.StructFie
 }
 
 func marshalStructValueStruct(incoming reflect.Value) (string, error) {
-	if marshal, ok := incoming.Interface().(Marshalable); ok {
+	elem := incoming.Addr()
+
+	if marshal, ok := elem.Interface().(Marshalable); ok {
 		return marshal.MarshalControl()
 	}
     return "", fmt.Errorf("%s doesn't implement the Marshalable interface",
-                          incoming.Type().Name())
+                          elem.Type().Name())
 }
 
 func marshalStructValue(incoming reflect.Value, fieldType reflect.StructField) (string, error) {
