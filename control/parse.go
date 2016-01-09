@@ -22,28 +22,15 @@ package control
 
 import (
 	"bufio"
+	"bytes"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"strings"
 
+	"golang.org/x/crypto/openpgp"
 	"golang.org/x/crypto/openpgp/clearsign"
 )
-
-// func encodeValue(value string) string {
-// 	ret := ""
-//
-// 	lines := strings.Split(value, "\n")
-// 	for _, line := range lines {
-// 		line = strings.Trim(line, " \t\r\n")
-// 		if line == "" {
-// 			line = "."
-// 		}
-// 		line = " " + line
-// 		ret = ret + line + "\n"
-// 	}
-//
-// 	return ret
-// }
 
 // A Paragraph is a block of RFC2822-like key value pairs. This struct contains
 // two methods to fetch values, a Map called Values, and a Slice called
@@ -53,43 +40,64 @@ type Paragraph struct {
 	Order  []string
 }
 
-// func (para Paragraph) String() string {
-// 	ret := ""
-//
-// 	for _, key := range para.Order {
-// 		value := encodeValue(para.Values[key])
-// 		ret = ret + fmt.Sprintf("%s:%s", key, value)
-// 	}
-//
-// 	return ret
-// }
+type UnsignedDataError struct{}
 
-func ParseOpenPGPParagraph(reader *bufio.Reader) (*Paragraph, error) {
-	els := ""
-	for {
-		line, err := reader.ReadString('\n')
-		if err == io.EOF {
-			break
+func (u *UnsignedDataError) Error() string {
+	return "Data is not signed"
+}
+
+func ParseParagraphs(reader *bufio.Reader, keyring openpgp.KeyRing) ([]Paragraph, *openpgp.Entity, error) {
+	var signer *openpgp.Entity
+
+	line, _ := reader.Peek(15)
+	if string(line) == "-----BEGIN PGP " {
+		/* OK. We have incoming signed data. This is a good thing. Now, let's
+		 * go ahead and validate this isn't bad. Following that, we'll wrap
+		 * it back up and send it out. */
+		b, err := ioutil.ReadAll(reader)
+		if err != nil {
+			return []Paragraph{}, nil, err
 		}
-		els = els + line
+		block, _ := clearsign.Decode(b)
+		/*     ^ we don't care about the remaining data */
+
+		if keyring == nil {
+			/* If we have a nil keyring, we're going to have to go ahead and
+			 * just use it as-is. */
+		} else {
+			signer, err = openpgp.CheckDetachedSignature(keyring, bytes.NewReader(block.Bytes), block.ArmoredSignature.Body)
+			if err != nil {
+				return []Paragraph{}, signer, err
+			}
+		}
+
+		reader = bufio.NewReader(bytes.NewBuffer(block.Bytes))
+
 	}
-	block, _ := clearsign.Decode([]byte(els))
-	/**
-	 * XXX: With the block, we need to validate everything.
-	 *
-	 * We need to hit openpgp.CheckDetachedSignature with block and
-	 * a keyring. For now, it'll ignore all signature checking entirely.
-	 */
-	return ParseParagraph(bufio.NewReader(strings.NewReader(string(block.Bytes))))
+	paragraphs, err := parseParagraphs(reader)
+	if err != nil {
+		return paragraphs, signer, err
+	}
+	return paragraphs, signer, nil
+}
+
+func parseParagraphs(reader *bufio.Reader) ([]Paragraph, error) {
+	ret := []Paragraph{}
+	for {
+		para, err := parseParagraph(reader)
+		if err == io.EOF {
+			ret = append(ret, *para)
+			break
+		} else if err != nil {
+			return []Paragraph{}, err
+		}
+		ret = append(ret, *para)
+	}
+	return ret, nil
 }
 
 // Given a bufio.Reader, go through and return a Paragraph.
-func ParseParagraph(reader *bufio.Reader) (*Paragraph, error) {
-	line, _ := reader.Peek(15)
-	if string(line) == "-----BEGIN PGP " {
-		return ParseOpenPGPParagraph(reader)
-	}
-
+func parseParagraph(reader *bufio.Reader) (*Paragraph, error) {
 	ret := &Paragraph{
 		Values: map[string]string{},
 		Order:  []string{},

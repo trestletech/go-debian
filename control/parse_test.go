@@ -62,8 +62,9 @@ func assert(t *testing.T, expr bool) {
 func TestBasicControlParse(t *testing.T) {
 	reader := bufio.NewReader(strings.NewReader(`Foo: bar
 `))
-	deb822, err := control.ParseParagraph(reader)
+	deb822s, err := control.ParseParagraphs(reader, nil)
 	isok(t, err)
+	deb822 := &deb822s[0]
 	assert(t, deb822 != nil)
 
 	assert(t, len(deb822.Order) == 1)
@@ -71,7 +72,9 @@ func TestBasicControlParse(t *testing.T) {
 	assert(t, deb822.Values["Foo"] == "bar")
 
 	reader = bufio.NewReader(strings.NewReader(`Foo: bar`))
-	deb822, err = control.ParseParagraph(reader)
+	deb822s, err = control.ParseParagraphs(reader, nil)
+	isok(t, err)
+	deb822 = &deb822s[0]
 	assert(t, deb822 == nil)
 	assert(t, err == io.EOF)
 }
@@ -84,8 +87,9 @@ Bar-Baz: fnord
  line
  here
 `))
-	deb822, err := control.ParseParagraph(reader)
+	deb822s, err := control.ParseParagraphs(reader, nil)
 	isok(t, err)
+	deb822 := &deb822s[0]
 	assert(t, deb822 != nil)
 
 	assert(t, len(deb822.Order) == 2)
@@ -101,8 +105,9 @@ Bar-Baz: fnord:and:this:here
  line
  here
 `))
-	deb822, err := control.ParseParagraph(reader)
+	deb822s, err := control.ParseParagraphs(reader, nil)
 	isok(t, err)
+	deb822 := &deb822s[0]
 	assert(t, deb822 != nil)
 
 	assert(t, len(deb822.Order) == 2)
@@ -123,8 +128,9 @@ Hello: world
 But-not: me
 `))
 	// }}}
-	deb822, err := control.ParseParagraph(reader)
+	deb822s, err := control.ParseParagraphs(reader, nil)
 	isok(t, err)
+	deb822 := &deb822s[0]
 	assert(t, deb822 != nil)
 
 	assert(t, len(deb822.Order) == 3)
@@ -137,8 +143,9 @@ But-not: me
 		t.FailNow()
 	}
 
-	deb822, err = control.ParseParagraph(reader)
+	deb822s, err = control.ParseParagraphs(reader, nil)
 	isok(t, err)
+	deb822 = &deb822s[0]
 	assert(t, deb822 != nil)
 
 	assert(t, len(deb822.Order) == 1)

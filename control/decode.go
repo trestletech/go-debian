@@ -238,7 +238,7 @@ func isParagraph(incoming reflect.Value) (int, bool) {
 
 func unmarshalStruct(incoming interface{}, data io.Reader) error {
 	reader := bufio.NewReader(data)
-	para, err := ParseParagraph(reader)
+	para, err := parseParagraph(reader)
 	if err != nil && err != io.EOF {
 		return err
 	}
